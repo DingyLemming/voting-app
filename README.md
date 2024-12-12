@@ -1,0 +1,1 @@
+This is Voting App Frontend page
