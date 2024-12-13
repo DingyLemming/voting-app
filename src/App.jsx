@@ -2,17 +2,24 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import './App.css';
-import { registerUser, loginUser, getPolls, createPoll, deletePoll, voteOnPoll } from './apiService';
+import { registerUser, loginUser } from './services/Auth';
+import { createPoll, getPolls, deletePoll, voteOnPoll, setAuthToken } from './services/Polls';
 
 function App() {
   const [userRole, setUserRole] = React.useState(null); 
   const [token, setToken] = React.useState(localStorage.getItem('token'));
 
+  React.useEffect(() => {
+    if (token) {
+      setAuthToken(token);
+    }
+  }, [token]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setToken(null);
     setUserRole(null);
+    setAuthToken(null);
   };
 
   return (
