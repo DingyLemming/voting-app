@@ -6,7 +6,7 @@ import { registerUser, loginUser } from './services/Auth';
 import { createPoll, getPolls, deletePoll, voteOnPoll, setAuthToken } from './services/Polls';
 
 function App() {
-  const [userRole, setUserRole] = React.useState(null); 
+  const [userRole, setUserRole] = React.useState(localStorage.getItem('userRole')); // Restore from localStorage
   const [token, setToken] = React.useState(localStorage.getItem('token'));
 
   React.useEffect(() => {
@@ -15,8 +15,16 @@ function App() {
     }
   }, [token]);
 
+  // Sync userRole with localStorage
+  React.useEffect(() => {
+    if (userRole) {
+      localStorage.setItem('userRole', userRole);
+    }
+  }, [userRole]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userRole'); // Clear userRole on logout
     setToken(null);
     setUserRole(null);
     setAuthToken(null);
@@ -203,7 +211,7 @@ function AdminDashboard() {
       const { data } = await createPoll(pollData);
       setPolls([...polls, data]);
       setNewQuestion('');
-      setNewOptions(['']);
+      setNewOptions([{ name: '' }]);
     } catch (error) {
       console.error('Error creating poll:', error.response?.data.message || error.message);
     }
@@ -218,25 +226,39 @@ function AdminDashboard() {
     }
   };
 
-  return (
+  const handleOptionChange = (index, value) => {
+    const updatedOptions = newOptions.map((option, i) => (i === index ? { name: value } : option));
+    setNewOptions(updatedOptions);
+  };
+
+  const addNewOption = () => setNewOptions([...newOptions, { name: '' }]);
+
+   return (
     <div>
       <h2>Admin Dashboard</h2>
       <div>
         <h3>Create New Poll</h3>
         <label>
           Question:
+          <input
+            type="text"
+            value={newQuestion}
+            onChange={(e) => setNewQuestion(e.target.value)}
+          />
         </label>
         {newOptions.map((option, index) => (
-          <input
-            key={index}
-            type="text"
-            value={option}
-            onChange={(e) =>
-              setNewOptions(newOptions.map((opt, i) => (i === index ? e.target.value : opt)))
-            }
-          />
+          <div key={index}>
+            <label>
+              Option {index + 1}:
+              <input
+                type="text"
+                value={option.name}
+                onChange={(e) => handleOptionChange(index, e.target.value)}
+              />
+            </label>
+          </div>
         ))}
-        <button onClick={() => setNewOptions([...newOptions, ''])}>Add Option</button>
+        <button onClick={addNewOption}>Add Option</button>
         <button onClick={handleAddPoll}>Create Poll</button>
       </div>
       <div>
