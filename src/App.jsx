@@ -4,9 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import './App.css';
 import { registerUser, loginUser } from './services/Auth';
 import { createPoll, getPolls, deletePoll, voteOnPoll, setAuthToken } from './services/Polls';
-
 function App() {
-  const [userRole, setUserRole] = React.useState(localStorage.getItem('userRole')); // Restore from localStorage
+  const [userRole, setUserRole] = React.useState(localStorage.getItem('userRole')); // Persist userRole
   const [token, setToken] = React.useState(localStorage.getItem('token'));
 
   React.useEffect(() => {
@@ -56,7 +55,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login setUserRole={setUserRole} setToken={setToken} />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/vote" element={token ? <Vote /> : <Navigate to="/login" />} />
+          <Route path="/vote" element={token ? <Vote userRole={userRole} /> : <Navigate to="/login" />} />
           <Route path="/admin" element={userRole === "admin" ? <AdminDashboard /> : <Navigate to="/" />} />
         </Routes>
       </div>
@@ -82,6 +81,7 @@ function Login({ setUserRole, setToken }) {
     try {
       const { data } = await loginUser({ username, password });
       localStorage.setItem('token', data.token);
+      localStorage.setItem('userRole', data.role); // Persist userRole
       setToken(data.token);
       setUserRole(data.role);
     } catch (error) {
@@ -147,7 +147,7 @@ function Register() {
   );
 }
 
-function Vote() {
+function Vote({ userRole }) {
   const [polls, setPolls] = React.useState([]);
 
   React.useEffect(() => {
@@ -163,6 +163,10 @@ function Vote() {
   }, []);
 
   const handleVote = async (pollId, optionId) => {
+    if (userRole !== 'user') {
+      alert('Only users can vote.');
+      return;
+    }
     try {
       await voteOnPoll(pollId, optionId);
       alert('Vote recorded successfully!');
@@ -178,7 +182,11 @@ function Vote() {
         <div key={poll._id}>
           <h4>{poll.question}</h4>
           {poll.options.map((option) => (
-            <button key={option._id} onClick={() => handleVote(poll._id, option._id)}>
+            <button
+              key={option._id}
+              onClick={() => handleVote(poll._id, option._id)}
+              disabled={userRole !== 'user'}
+            >
               {option.name} ({option.votes})
             </button>
           ))}
@@ -207,11 +215,11 @@ function AdminDashboard() {
 
   const handleAddPoll = async () => {
     try {
-      const pollData = { question: newQuestion, options: newOptions };
+      const pollData = { question: newQuestion, options: newOptions.map((opt) => ({ name: opt })) };
       const { data } = await createPoll(pollData);
       setPolls([...polls, data]);
       setNewQuestion('');
-      setNewOptions([{ name: '' }]);
+      setNewOptions(['']);
     } catch (error) {
       console.error('Error creating poll:', error.response?.data.message || error.message);
     }
@@ -226,14 +234,7 @@ function AdminDashboard() {
     }
   };
 
-  const handleOptionChange = (index, value) => {
-    const updatedOptions = newOptions.map((option, i) => (i === index ? { name: value } : option));
-    setNewOptions(updatedOptions);
-  };
-
-  const addNewOption = () => setNewOptions([...newOptions, { name: '' }]);
-
-   return (
+  return (
     <div>
       <h2>Admin Dashboard</h2>
       <div>
@@ -247,18 +248,16 @@ function AdminDashboard() {
           />
         </label>
         {newOptions.map((option, index) => (
-          <div key={index}>
-            <label>
-              Option {index + 1}:
-              <input
-                type="text"
-                value={option.name}
-                onChange={(e) => handleOptionChange(index, e.target.value)}
-              />
-            </label>
-          </div>
+          <input
+            key={index}
+            type="text"
+            value={option}
+            onChange={(e) =>
+              setNewOptions(newOptions.map((opt, i) => (i === index ? e.target.value : opt)))
+            }
+          />
         ))}
-        <button onClick={addNewOption}>Add Option</button>
+        <button onClick={() => setNewOptions([...newOptions, ''])}>Add Option</button>
         <button onClick={handleAddPoll}>Create Poll</button>
       </div>
       <div>
