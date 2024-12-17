@@ -4,15 +4,18 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import './App.css';
 import { registerUser, loginUser } from './services/Auth';
 import { createPoll, getPolls, deletePoll, voteOnPoll, setAuthToken } from './services/Polls';
+
 function App() {
   const [userRole, setUserRole] = React.useState(localStorage.getItem('userRole')); // Persist userRole
   const [token, setToken] = React.useState(localStorage.getItem('token'));
 
   React.useEffect(() => {
-    if (token) {
-      setAuthToken(token);
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      setToken(savedToken); // Update React state
+      setAuthToken(savedToken); // Ensure Axios headers are updated
     }
-  }, [token]);
+  }, []);
 
   // Sync userRole with localStorage
   React.useEffect(() => {
@@ -81,6 +84,8 @@ function Login({ setUserRole, setToken }) {
     try {
       const { data } = await loginUser({ username, password });
       localStorage.setItem('token', data.token);
+      setToken(data.token);
+      setAuthToken(data.token);
       localStorage.setItem('userRole', data.role); // Persist userRole
       setToken(data.token);
       setUserRole(data.role);
@@ -200,43 +205,62 @@ function AdminDashboard() {
   const [polls, setPolls] = React.useState([]);
   const [newQuestion, setNewQuestion] = React.useState('');
   const [newOptions, setNewOptions] = React.useState(['']);
+  const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
     const fetchPolls = async () => {
       try {
         const { data } = await getPolls();
         setPolls(data);
+        console.log('Fetched polls:', data);
       } catch (error) {
-        console.error('Error fetching polls:', error.response?.data.message || error.message);
+        setError(error.response?.data?.message || 'Error fetching polls');
+        console.error('Error fetching polls:', error.response?.data?.message || error.message);
+        console.log('Fetch polls error details:', error);
       }
     };
+
     fetchPolls();
   }, []);
 
   const handleAddPoll = async () => {
     try {
       const pollData = { question: newQuestion, options: newOptions.map((opt) => ({ name: opt })) };
+      console.log('Creating poll with data:', pollData);
+  
       const { data } = await createPoll(pollData);
-      setPolls([...polls, data]);
+      console.log('Poll created successfully:', data);
+  
+      // Add the new poll to the state
+      setPolls((prevPolls) => [...prevPolls, data.poll]);
+  
+      // Reset the form
       setNewQuestion('');
       setNewOptions(['']);
     } catch (error) {
-      console.error('Error creating poll:', error.response?.data.message || error.message);
+      setError(error.response?.data?.message || 'Error creating poll');
+      console.error('Error creating poll:', error.response?.data?.message || error.message);
     }
   };
+  
 
   const handleDeletePoll = async (pollId) => {
     try {
+      console.log('Deleting poll with ID:', pollId);
       await deletePoll(pollId);
-      setPolls(polls.filter((poll) => poll._id !== pollId));
+      setPolls((prevPolls) => prevPolls.filter((poll) => poll._id !== pollId));
+      console.log('Poll deleted successfully');
     } catch (error) {
-      console.error('Error deleting poll:', error.response?.data.message || error.message);
+      setError(error.response?.data?.message || 'Error deleting poll');
+      console.error('Error deleting poll:', error.response?.data?.message || error.message);
+      console.log('Delete poll error details:', error);
     }
   };
 
   return (
     <div>
       <h2>Admin Dashboard</h2>
+      {error && <p className="error-message">{error}</p>}
       <div>
         <h3>Create New Poll</h3>
         <label>
@@ -247,33 +271,45 @@ function AdminDashboard() {
             onChange={(e) => setNewQuestion(e.target.value)}
           />
         </label>
-        {newOptions.map((option, index) => (
-          <input
-            key={index}
-            type="text"
-            value={option}
-            onChange={(e) =>
-              setNewOptions(newOptions.map((opt, i) => (i === index ? e.target.value : opt)))
-            }
-          />
-        ))}
+        <div>
+          <h4>Options:</h4>
+          {newOptions.map((option, index) => (
+            <div key={index}>
+              <label>
+                Option {index + 1}:
+                <input
+                  type="text"
+                  value={option}
+                  onChange={(e) =>
+                    setNewOptions(newOptions.map((opt, i) => (i === index ? e.target.value : opt)))
+                  }
+                />
+              </label>
+            </div>
+          ))}
+        </div>
         <button onClick={() => setNewOptions([...newOptions, ''])}>Add Option</button>
         <button onClick={handleAddPoll}>Create Poll</button>
       </div>
       <div>
-        <h3>Existing Polls</h3>
-        {polls.map((poll) => (
+      <h3>Existing Polls</h3>
+      {polls && polls.length > 0 ? (
+        polls.map((poll) => (
           <div key={poll._id}>
             <h4>{poll.question}</h4>
-            {poll.options.map((option) => (
-              <p key={option._id}>{option.name} ({option.votes})</p>
+            {poll.options?.map((option) => (
+              <p key={option._id}>
+                {option.name} ({option.votes})
+              </p>
             ))}
             <button onClick={() => handleDeletePoll(poll._id)}>Delete Poll</button>
           </div>
-        ))}
-      </div>
+        ))
+      ) : (
+        <p>No polls available.</p>
+      )}
+    </div>
     </div>
   );
 }
-
 export default App;
