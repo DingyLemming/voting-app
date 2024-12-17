@@ -6,7 +6,7 @@ import { registerUser, loginUser } from './services/Auth';
 import { createPoll, getPolls, deletePoll, voteOnPoll, setAuthToken } from './services/Polls';
 
 function App() {
-  const [userRole, setUserRole] = React.useState(localStorage.getItem('userRole')); // Persist userRole
+  const [userRole, setUserRole] = React.useState(localStorage.getItem('userRole'));
   const [token, setToken] = React.useState(localStorage.getItem('token'));
 
   React.useEffect(() => {
@@ -86,7 +86,7 @@ function Login({ setUserRole, setToken }) {
       localStorage.setItem('token', data.token);
       setToken(data.token);
       setAuthToken(data.token);
-      localStorage.setItem('userRole', data.role); // Persist userRole
+      localStorage.setItem('userRole', data.role);
       setToken(data.token);
       setUserRole(data.role);
     } catch (error) {
